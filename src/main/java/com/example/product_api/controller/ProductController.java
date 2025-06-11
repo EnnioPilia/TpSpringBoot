@@ -35,17 +35,41 @@ public class ProductController {
         return repository.findAll();
     }
 
-    // GET product by ID
-    @GetMapping("/{id}")
-    public Product getById(@PathVariable Long id) {
-        return repository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Produit non trouvé"));
+    // ✅ PLACE ICI AVANT LA ROUTE PARAMÉTRÉE
+    // CREATE BUNDLE
+    @PostMapping("/bundle")
+    public ResponseEntity<?> createBundle(@RequestBody BundleRequest request) {
+        List<Product> sources = repository.findAllById(request.sourceIds);
+
+        if (sources.size() != request.sourceIds.size()) {
+            return ResponseEntity.badRequest().body("Un ou plusieurs produits sources non trouvés");
+        }
+
+        if (hasCycle(sources, new HashSet<>())) {
+            return ResponseEntity.badRequest().body("Cycle détecté dans la composition du bundle");
+        }
+
+        Product bundle = new Product();
+        bundle.setName(request.name);
+        bundle.setPrice(request.price);
+        bundle.setSources(sources);
+
+        repository.save(bundle);
+        return ResponseEntity.ok(bundle);
     }
 
     // CREATE product
     @PostMapping
     public Product create(@RequestBody Product product) {
         return repository.save(product);
+    }
+
+    // ✅ CETTE ROUTE GÉNÉRIQUE DOIT VENIR APRÈS
+    // GET product by ID
+    @GetMapping("/{id}")
+    public Product getById(@PathVariable Long id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Produit non trouvé"));
     }
 
     // UPDATE product
@@ -77,31 +101,6 @@ public class ProductController {
         return repository.save(copy);
     }
 
-    // CREATE BUNDLE
-    @PostMapping("/bundle")
-    public ResponseEntity<?> createBundle(@RequestBody BundleRequest request) {
-        // Récupération des produits sources
-        List<Product> sources = repository.findAllById(request.sourceIds);
-
-        if (sources.size() != request.sourceIds.size()) {
-            return ResponseEntity.badRequest().body("Un ou plusieurs produits sources non trouvés");
-        }
-
-        // Vérifier l'absence de cycle
-        if (hasCycle(sources, new HashSet<>())) {
-            return ResponseEntity.badRequest().body("Cycle détecté dans la composition du bundle");
-        }
-
-        // Créer le produit bundle
-        Product bundle = new Product();
-        bundle.setName(request.name);
-        bundle.setPrice(request.price);
-        bundle.setSources(sources);
-
-        repository.save(bundle);
-        return ResponseEntity.ok(bundle);
-    }
-
     // ----------- Méthodes internes -----------
 
     // DTO pour la requête de création de bundle
@@ -115,7 +114,7 @@ public class ProductController {
     private boolean hasCycle(List<Product> products, Set<Long> visited) {
         for (Product product : products) {
             if (visited.contains(product.getId())) {
-                return true; // cycle détecté
+                return true;
             }
             visited.add(product.getId());
             if (hasCycle(product.getSources(), visited)) {
