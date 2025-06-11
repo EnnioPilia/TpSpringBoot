@@ -75,4 +75,27 @@ public class ProductControllerTest {
             .andExpect(jsonPath("$.sources.length()").value(2))
             .andExpect(jsonPath("$.sources[0].name").value("Produit A"));
     }
+    @Test
+void testGetAllProducts() throws Exception {
+    mockMvc.perform(get("/products"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(2)) // car setup() crée 2 produits
+        .andExpect(jsonPath("$[0].name").value("Produit A"))
+        .andExpect(jsonPath("$[1].name").value("Produit B"));
+}
+@Test
+void testCreateSimpleProduct() throws Exception {
+    Product newProduct = new Product();
+    newProduct.setName("Produit C");
+    newProduct.setPrice(49.99);
+
+    mockMvc.perform(post("/products")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(newProduct)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").exists())
+        .andExpect(jsonPath("$.name").value("Produit C"))
+        .andExpect(jsonPath("$.price").value(49.99));
+}
+
 }
